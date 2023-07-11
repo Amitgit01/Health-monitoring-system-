@@ -1,0 +1,95 @@
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+
+// Wi-Fi credentials
+const char* ssid = "Networkcontrol";
+const char* password = "network_wifi_01";
+
+// MQTT broker details
+const char* mqttServer = "mqtt.connect.com";
+const int mqttPort = 1883;
+const char* mqttUser = "Mqtt1012";
+const char* mqttPassword = "********";
+
+// Sensor pins
+const int bloodPressureSensorPin = A0;
+const int glucoseSensorPin = A1;
+const int heartRateSensorPin = A2;
+
+// MQTT topics
+const char* bloodPressureTopic = "health/bloodpressure";
+const char* glucoseLevelTopic = "health/glucoselevel";
+const char* heartRateTopic = "health/heartrate";
+
+// MQTT client
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Connect to MQTT broker
+  client.setServer(mqttServer, mqttPort);
+  while (!client.connected()) {
+    Serial.println("Connecting to MQTT broker...");
+    if (client.connect("arduinoClient", mqttUser, mqttPassword)) {
+      Serial.println("Connected to MQTT broker");
+    } else {
+      Serial.print("Failed with state ");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
+}
+
+void loop() {
+  // Read sensor values
+  float bloodPressure = readBloodPressure();
+  float glucoseLevel = readGlucoseLevel();
+  float heartRate = readHeartRate();
+
+  // Publish sensor data to MQTT topics
+  publishData(bloodPressureTopic, bloodPressure);
+  publishData(glucoseLevelTopic, glucoseLevel);
+  publishData(heartRateTopic, heartRate);
+
+  delay(5000);  
+}
+
+float readBloodPressure() {
+  // Read blood pressure sensor value and convert to appropriate units
+  return analogRead(bloodPressureSensorPin);
+}
+
+float readGlucoseLevel() {
+  // Read glucose level sensor value and convert to appropriate units
+  return analogRead(glucoseSensorPin);
+}
+
+float readHeartRate() {
+  // Read heart rate sensor value and convert to appropriate units
+  return analogRead(heartRateSensorPin);
+}
+
+void publishData(const char* topic, float data) {
+  char payload[10];
+  snprintf(payload, sizeof(payload), "%.2f", data);
+
+  if (client.publish(topic, payload)) {
+    Serial.print("Published to topic: ");
+    Serial.println(topic);
+    Serial.print("Data: ");
+    Serial.println(data);
+  } else {
+    Serial.print("Failed to publish to topic: ");
+    Serial.println(topic);
+  }
+}
